@@ -1,32 +1,23 @@
-# React + TypeScript + Vite
+# CodeSight: Live Code Architecture Visualizer
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+CodeSight is a high-performance, real-time code architecture visualizer. It watches a local codebase, parses files using an Abstract Syntax Tree (AST), and instantly renders a live-updating dependency graph in the browser. 
 
-Currently, two official plugins are available:
+Built with a hybrid C++/Python architecture to maximize parsing speed and development agility.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+![CodeSight UI](screenshot.png)
 
-## React Compiler
+## Architecture
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+CodeSight is designed as a distributed microservice system running locally:
 
-## Expanding the Oxlint configuration
+1. **C++ Core (Performance Layer):** Uses Linux `inotify` for zero-latency file system event monitoring and Tree-sitter for incremental AST parsing.
+2. **gRPC Bridge (IPC Layer):** Transmits structured Protobuf messages from the C++ core to the Python backend with sub-millisecond latency.
+3. **Python Backend (Intelligence Layer):** FastAPI server that maintains a dynamic NetworkX dependency graph and broadcasts updates via WebSockets.
+4. **React Frontend (Presentation Layer):** Consumes the WebSocket stream and renders live SVG diagrams using Mermaid.js.
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+```mermaid
+graph TD
+    A[File System Event] -->|inotify| B(C++ Watcher & Parser)
+    B -->|gRPC / Protobuf| C{Python FastAPI Backend}
+    C -->|NetworkX Graph| D[Mermaid Diagram Generator]
+    D -->|WebSocket| E[React Frontend]
