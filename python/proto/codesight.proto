@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package codesight;
+
+// Service for receiving parsed file data from C++
+service CodeSightService {
+    // Send parsed file data
+    rpc SendParsedFile(ParsedFile) returns (AckResponse);
+
+    // Get current graph state (for frontend)
+    rpc GetGraphState(Empty) returns (GraphState);
+}
+
+message Empty {}
+
+message ParsedFile {
+    string filepath = 1;
+    repeated FunctionInfo functions = 2;
+    repeated ImportInfo imports = 3;
+    repeated ApiRouteInfo api_routes = 4;
+}
+
+message FunctionInfo {
+    string name = 1;
+    int32 line_number = 2;
+}
+
+message ImportInfo {
+    string module = 1;
+    string alias = 2;
+    int32 line_number = 3;
+}
+
+message ApiRouteInfo {
+    string method = 1;
+    string path = 2;
+    string handler = 3;
+    int32 line_number = 4;
+}
+
+message AckResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+// Graph state for frontend
+message GraphState {
+    repeated Node nodes = 1;
+    repeated Edge edges = 2;
+    string mermaid_diagram = 3;
+}
+
+message Node {
+    string id = 1;
+    string label = 2;
+    string type = 3;  // "file", "function", "import", "api_route"
+}
+
+message Edge {
+    string from = 1;
+    string to = 2;
+    string type = 3;  // "imports", "calls", "defines"
+}

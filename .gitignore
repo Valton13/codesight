@@ -1,0 +1,40 @@
+# C++ Build Files
+build/
+cmake-build-debug/
+cmake-build-release/
+*.o
+*.a
+*.so
+*.dylib
+*.exe
+*.out
+
+# Python Virtual Environment & Cache
+python/venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+
+# Node.js & React Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.turbo
+
+# IDE & Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Generated Protobuf files (Optional: uncomment if you want to force users to generate them)
+# python/proto/*_pb2.py
+# python/proto/*_pb2_grpc.py
