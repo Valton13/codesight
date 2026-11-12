@@ -30,3 +30,4 @@ logs/
 *.swp
 .DS_Store
 Thumbs.db
+third_party/
