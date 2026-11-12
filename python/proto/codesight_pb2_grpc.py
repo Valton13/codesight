@@ -26,8 +26,7 @@ if _version_not_supported:
 
 
 class CodeSightServiceStub:
-    """Service for receiving parsed file data from C++
-    """
+    """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
         """Constructor.
@@ -48,19 +47,16 @@ class CodeSightServiceStub:
 
 
 class CodeSightServiceServicer:
-    """Service for receiving parsed file data from C++
-    """
+    """Missing associated documentation comment in .proto file."""
 
     def SendParsedFile(self, request, context):
-        """Send parsed file data
-        """
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def GetGraphState(self, request, context):
-        """Get current graph state (for frontend)
-        """
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -87,8 +83,7 @@ def add_CodeSightServiceServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class CodeSightService:
-    """Service for receiving parsed file data from C++
-    """
+    """Missing associated documentation comment in .proto file."""
 
     @staticmethod
     def SendParsedFile(request,

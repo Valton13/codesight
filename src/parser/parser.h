@@ -7,7 +7,6 @@
 namespace codesight
 {
 
-    // Prefixed with Cpp to avoid collision with protobuf generated classes
     struct CppFunctionInfo
     {
         std::string name;
@@ -29,12 +28,24 @@ namespace codesight
         int line_number;
     };
 
+    struct CppSymbolInfo
+    {
+        std::string name;
+        std::string kind; // class | interface | struct | enum | trait | module | function | method | constructor
+        int line_number;
+        int end_line;
+        std::string parent; // enclosing type, empty when top level
+        bool exported;
+        int complexity;
+    };
+
     struct CppParsedFile
     {
         std::string filepath;
         std::vector<CppFunctionInfo> functions;
         std::vector<CppImportInfo> imports;
         std::vector<CppApiRouteInfo> api_routes;
+        std::vector<CppSymbolInfo> symbols;
     };
 
     class Parser

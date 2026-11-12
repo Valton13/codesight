@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15proto/codesight.proto\x12\tcodesight\"\x07\n\x05\x45mpty\"\x9f\x01\n\nParsedFile\x12\x10\n\x08\x66ilepath\x18\x01 \x01(\t\x12*\n\tfunctions\x18\x02 \x03(\x0b\x32\x17.codesight.FunctionInfo\x12&\n\x07imports\x18\x03 \x03(\x0b\x32\x15.codesight.ImportInfo\x12+\n\napi_routes\x18\x04 \x03(\x0b\x32\x17.codesight.ApiRouteInfo\"1\n\x0c\x46unctionInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x13\n\x0bline_number\x18\x02 \x01(\x05\"@\n\nImportInfo\x12\x0e\n\x06module\x18\x01 \x01(\t\x12\r\n\x05\x61lias\x18\x02 \x01(\t\x12\x13\n\x0bline_number\x18\x03 \x01(\x05\"R\n\x0c\x41piRouteInfo\x12\x0e\n\x06method\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x0f\n\x07handler\x18\x03 \x01(\t\x12\x13\n\x0bline_number\x18\x04 \x01(\x05\"/\n\x0b\x41\x63kResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"e\n\nGraphState\x12\x1e\n\x05nodes\x18\x01 \x03(\x0b\x32\x0f.codesight.Node\x12\x1e\n\x05\x65\x64ges\x18\x02 \x03(\x0b\x32\x0f.codesight.Edge\x12\x17\n\x0fmermaid_diagram\x18\x03 \x01(\t\"/\n\x04Node\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05label\x18\x02 \x01(\t\x12\x0c\n\x04type\x18\x03 \x01(\t\".\n\x04\x45\x64ge\x12\x0c\n\x04\x66rom\x18\x01 \x01(\t\x12\n\n\x02to\x18\x02 \x01(\t\x12\x0c\n\x04type\x18\x03 \x01(\t2\x8d\x01\n\x10\x43odeSightService\x12?\n\x0eSendParsedFile\x12\x15.codesight.ParsedFile\x1a\x16.codesight.AckResponse\x12\x38\n\rGetGraphState\x12\x10.codesight.Empty\x1a\x15.codesight.GraphStateb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15proto/codesight.proto\x12\tcodesight\"\x07\n\x05\x45mpty\"1\n\x0c\x46unctionInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x13\n\x0bline_number\x18\x02 \x01(\x05\"@\n\nImportInfo\x12\x0e\n\x06module\x18\x01 \x01(\t\x12\r\n\x05\x61lias\x18\x02 \x01(\t\x12\x13\n\x0bline_number\x18\x03 \x01(\x05\"R\n\x0c\x41piRouteInfo\x12\x0e\n\x06method\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x0f\n\x07handler\x18\x03 \x01(\t\x12\x13\n\x0bline_number\x18\x04 \x01(\x05\"\x85\x01\n\nSymbolInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0c\n\x04kind\x18\x02 \x01(\t\x12\x13\n\x0bline_number\x18\x03 \x01(\x05\x12\x10\n\x08\x65nd_line\x18\x04 \x01(\x05\x12\x0e\n\x06parent\x18\x05 \x01(\t\x12\x10\n\x08\x65xported\x18\x06 \x01(\x08\x12\x12\n\ncomplexity\x18\x07 \x01(\x05\"\xc7\x01\n\nParsedFile\x12\x10\n\x08\x66ilepath\x18\x01 \x01(\t\x12*\n\tfunctions\x18\x02 \x03(\x0b\x32\x17.codesight.FunctionInfo\x12&\n\x07imports\x18\x03 \x03(\x0b\x32\x15.codesight.ImportInfo\x12+\n\napi_routes\x18\x04 \x03(\x0b\x32\x17.codesight.ApiRouteInfo\x12&\n\x07symbols\x18\x05 \x03(\x0b\x32\x15.codesight.SymbolInfo\"/\n\x0b\x41\x63kResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"e\n\nGraphState\x12\x1e\n\x05nodes\x18\x01 \x03(\x0b\x32\x0f.codesight.Node\x12\x1e\n\x05\x65\x64ges\x18\x02 \x03(\x0b\x32\x0f.codesight.Edge\x12\x17\n\x0fmermaid_diagram\x18\x03 \x01(\t\"/\n\x04Node\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05label\x18\x02 \x01(\t\x12\x0c\n\x04type\x18\x03 \x01(\t\".\n\x04\x45\x64ge\x12\x0c\n\x04\x66rom\x18\x01 \x01(\t\x12\n\n\x02to\x18\x02 \x01(\t\x12\x0c\n\x04type\x18\x03 \x01(\t2\x8d\x01\n\x10\x43odeSightService\x12?\n\x0eSendParsedFile\x12\x15.codesight.ParsedFile\x1a\x16.codesight.AckResponse\x12\x38\n\rGetGraphState\x12\x10.codesight.Empty\x1a\x15.codesight.GraphStateb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,22 +33,24 @@ if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_EMPTY']._serialized_start=36
   _globals['_EMPTY']._serialized_end=43
-  _globals['_PARSEDFILE']._serialized_start=46
-  _globals['_PARSEDFILE']._serialized_end=205
-  _globals['_FUNCTIONINFO']._serialized_start=207
-  _globals['_FUNCTIONINFO']._serialized_end=256
-  _globals['_IMPORTINFO']._serialized_start=258
-  _globals['_IMPORTINFO']._serialized_end=322
-  _globals['_APIROUTEINFO']._serialized_start=324
-  _globals['_APIROUTEINFO']._serialized_end=406
-  _globals['_ACKRESPONSE']._serialized_start=408
-  _globals['_ACKRESPONSE']._serialized_end=455
-  _globals['_GRAPHSTATE']._serialized_start=457
-  _globals['_GRAPHSTATE']._serialized_end=558
-  _globals['_NODE']._serialized_start=560
-  _globals['_NODE']._serialized_end=607
-  _globals['_EDGE']._serialized_start=609
-  _globals['_EDGE']._serialized_end=655
-  _globals['_CODESIGHTSERVICE']._serialized_start=658
-  _globals['_CODESIGHTSERVICE']._serialized_end=799
+  _globals['_FUNCTIONINFO']._serialized_start=45
+  _globals['_FUNCTIONINFO']._serialized_end=94
+  _globals['_IMPORTINFO']._serialized_start=96
+  _globals['_IMPORTINFO']._serialized_end=160
+  _globals['_APIROUTEINFO']._serialized_start=162
+  _globals['_APIROUTEINFO']._serialized_end=244
+  _globals['_SYMBOLINFO']._serialized_start=247
+  _globals['_SYMBOLINFO']._serialized_end=380
+  _globals['_PARSEDFILE']._serialized_start=383
+  _globals['_PARSEDFILE']._serialized_end=582
+  _globals['_ACKRESPONSE']._serialized_start=584
+  _globals['_ACKRESPONSE']._serialized_end=631
+  _globals['_GRAPHSTATE']._serialized_start=633
+  _globals['_GRAPHSTATE']._serialized_end=734
+  _globals['_NODE']._serialized_start=736
+  _globals['_NODE']._serialized_end=783
+  _globals['_EDGE']._serialized_start=785
+  _globals['_EDGE']._serialized_end=831
+  _globals['_CODESIGHTSERVICE']._serialized_start=834
+  _globals['_CODESIGHTSERVICE']._serialized_end=975
 # @@protoc_insertion_point(module_scope)

@@ -11,8 +11,6 @@
 #include <chrono>
 #include <memory>
 #include <filesystem>
-#include <vector>
-#include <utility>
 #include <cstdlib>
 
 namespace fs = std::filesystem;
@@ -43,21 +41,11 @@ std::string eventTypeToString(codesight::EventType type)
     }
 }
 
-// Serialize a parsed file into the gRPC request and send it to the Python backend.
 static bool sendParsed(const codesight::CppParsedFile &parsed)
 {
     if (!grpc_client)
         return false;
-
-    std::vector<std::pair<std::string, int>> functions;
-    for (const auto &f : parsed.functions)
-        functions.emplace_back(f.name, f.line_number);
-
-    std::vector<std::string> imports;
-    for (const auto &i : parsed.imports)
-        imports.push_back(i.module);
-
-    return grpc_client->sendParsedFile(parsed.filepath, functions, imports);
+    return grpc_client->sendParsedFile(parsed);
 }
 
 void onFileEvent(const codesight::FileEvent &event)
@@ -68,16 +56,14 @@ void onFileEvent(const codesight::FileEvent &event)
         event.type == codesight::EventType::MODIFIED)
     {
         codesight::Parser parser;
-        codesight::CppParsedFile parsed = parser.parseFile(event.filepath);
-        std::cout << "  Functions: " << parsed.functions.size()
+        auto parsed = parser.parseFile(event.filepath);
+        std::cout << "  Symbols: " << parsed.symbols.size()
                   << "  Imports: " << parsed.imports.size() << "\n";
         std::cout << (sendParsed(parsed) ? "  Sent to Python backend\n"
                                          : "  Failed to send to Python backend\n");
     }
 }
 
-// One-shot mode: walk a directory (e.g. a freshly cloned GitHub repo),
-// parse every supported file, stream results over gRPC, then exit.
 int runScan(const std::string &directory, int maxFiles)
 {
     grpc_client = std::make_unique<codesight::GrpcClient>("localhost:50051");
@@ -104,7 +90,6 @@ int runScan(const std::string &directory, int maxFiles)
 
         if (it->is_directory())
         {
-            // Prune ignored trees (node_modules, .git, ...) instead of walking them.
             if (filter.shouldIgnore(it->path().string()))
                 it.disable_recursion_pending();
             continue;
@@ -119,7 +104,7 @@ int runScan(const std::string &directory, int maxFiles)
         std::error_code sec;
         auto size = it->file_size(sec);
         if (sec || size > 256 * 1024)
-            continue; // skip unreadable / huge files
+            continue;
 
         auto parsed = parser.parseFile(path);
         scanned++;
@@ -140,7 +125,6 @@ int runScan(const std::string &directory, int maxFiles)
 
 int main(int argc, char *argv[])
 {
-    // Scan mode: codesight --scan <dir> [maxFiles]
     if (argc >= 3 && std::string(argv[1]) == "--scan")
     {
         int maxFiles = (argc >= 4) ? std::atoi(argv[3]) : 300;

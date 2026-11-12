@@ -2,62 +2,68 @@ syntax = "proto3";
 
 package codesight;
 
-// Service for receiving parsed file data from C++
 service CodeSightService {
-    // Send parsed file data
-    rpc SendParsedFile(ParsedFile) returns (AckResponse);
-
-    // Get current graph state (for frontend)
-    rpc GetGraphState(Empty) returns (GraphState);
+  rpc SendParsedFile(ParsedFile) returns (AckResponse);
+  rpc GetGraphState(Empty) returns (GraphState);
 }
 
 message Empty {}
 
-message ParsedFile {
-    string filepath = 1;
-    repeated FunctionInfo functions = 2;
-    repeated ImportInfo imports = 3;
-    repeated ApiRouteInfo api_routes = 4;
-}
-
 message FunctionInfo {
-    string name = 1;
-    int32 line_number = 2;
+  string name = 1;
+  int32 line_number = 2;
 }
 
 message ImportInfo {
-    string module = 1;
-    string alias = 2;
-    int32 line_number = 3;
+  string module = 1;
+  string alias = 2;
+  int32 line_number = 3;
 }
 
 message ApiRouteInfo {
-    string method = 1;
-    string path = 2;
-    string handler = 3;
-    int32 line_number = 4;
+  string method = 1;
+  string path = 2;
+  string handler = 3;
+  int32 line_number = 4;
+}
+
+message SymbolInfo {
+  string name = 1;
+  string kind = 2;
+  int32 line_number = 3;
+  int32 end_line = 4;
+  string parent = 5;
+  bool exported = 6;
+  int32 complexity = 7;
+}
+
+message ParsedFile {
+  string filepath = 1;
+  repeated FunctionInfo functions = 2;
+  repeated ImportInfo imports = 3;
+  repeated ApiRouteInfo api_routes = 4;
+  repeated SymbolInfo symbols = 5;
 }
 
 message AckResponse {
-    bool success = 1;
-    string message = 2;
+  bool success = 1;
+  string message = 2;
 }
 
-// Graph state for frontend
 message GraphState {
-    repeated Node nodes = 1;
-    repeated Edge edges = 2;
-    string mermaid_diagram = 3;
+  repeated Node nodes = 1;
+  repeated Edge edges = 2;
+  string mermaid_diagram = 3;
 }
 
 message Node {
-    string id = 1;
-    string label = 2;
-    string type = 3;  // "file", "function", "import", "api_route"
+  string id = 1;
+  string label = 2;
+  string type = 3;
 }
 
 message Edge {
-    string from = 1;
-    string to = 2;
-    string type = 3;  // "imports", "calls", "defines"
+  string from = 1;
+  string to = 2;
+  string type = 3;
 }
