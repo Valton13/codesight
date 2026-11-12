@@ -30,3 +30,5 @@ def final_test(): pass
 def final_test(): pass
 def final_test(): pass
 def final_test(): pass
+def export_test(): pass
+def startup_test(): pass

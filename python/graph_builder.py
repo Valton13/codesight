@@ -1,123 +1,185 @@
-import re
+"""Incremental dependency graph for CodeSight.
 
-import networkx as nx
-import proto.codesight_pb2 as pb2
+Stores per-file parse records and derives a clean node/edge model:
+files, functions, API routes, resolved internal imports, and aggregated
+external dependencies. The frontend renders this model with live filters.
+"""
+
+import posixpath
+import re
+from dataclasses import dataclass, field
+
+
+@dataclass
+class FileRecord:
+    path: str
+    functions: list[tuple[str, int]] = field(default_factory=list)
+    imports: list[str] = field(default_factory=list)
+    routes: list[tuple[str, str, str]] = field(default_factory=list)
 
 
 class GraphBuilder:
     def __init__(self):
-        self.graph = nx.DiGraph()
-        self.file_to_functions: dict[str, set[str]] = {}
-        self.file_to_imports: dict[str, set[str]] = {}
+        self.files: dict[str, FileRecord] = {}
+        self.repo: str | None = None
+        self.repo_root: str | None = None
 
-    def update_from_parsed_file(self, parsed_file: pb2.ParsedFile):
-        filepath = parsed_file.filepath
+    def reset(self, repo: str | None = None, repo_root: str | None = None):
+        self.files.clear()
+        self.repo = repo
+        self.repo_root = repo_root
 
-        # Use just the filename for the label to keep it clean and avoid path security issues
-        filename = filepath.split("/")[-1]
-        self.graph.add_node(filepath, type="file", label=filename)
+    def update_from_parsed_file(self, parsed_file):
+        rec = FileRecord(path=parsed_file.filepath)
+        rec.functions = [(f.name, f.line_number) for f in parsed_file.functions]
+        rec.imports = [i.module for i in parsed_file.imports]
+        rec.routes = [(r.method, r.path, r.handler) for r in parsed_file.api_routes]
+        self.files[rec.path] = rec
 
-        if filepath not in self.file_to_functions:
-            self.file_to_functions[filepath] = set()
+    # ---------- helpers ----------
 
-        old_functions = self.file_to_functions[filepath].copy()
-        for func_name in old_functions:
-            func_id = f"{filepath}::{func_name}"
-            if self.graph.has_node(func_id):
-                self.graph.remove_node(func_id)
+    def _rel(self, path: str) -> str:
+        if self.repo_root and path.startswith(self.repo_root):
+            return path[len(self.repo_root) :].lstrip("/")
+        return path
 
-        self.file_to_functions[filepath] = set()
-        for func in parsed_file.functions:
-            func_id = f"{filepath}::{func.name}"
-            self.graph.add_node(func_id, type="function", label=func.name)
-            self.graph.add_edge(filepath, func_id, type="defines")
-            self.file_to_functions[filepath].add(func.name)
+    @staticmethod
+    def _import_modules(raw: str) -> list[str]:
+        """Extract module specifiers from Python/JS import statements."""
+        raw = raw.strip()
+        mods: list[str] = []
+        m = re.match(r"from\s+([\w.\-/]+)\s+import", raw)
+        if m:
+            mods.append(m.group(1))
+        elif raw.startswith("import "):
+            for part in raw[7:].split(","):
+                part = part.strip().split(" as ")[0].strip()
+                if part:
+                    mods.append(part)
+        else:
+            m = re.search(r"from\s+['\"]([^'\"]+)['\"]", raw)
+            if m:
+                mods.append(m.group(1))
+            else:
+                m = re.match(r"import\s+['\"]([^'\"]+)['\"]", raw)
+                if m:
+                    mods.append(m.group(1))
+        return mods
 
-        if filepath not in self.file_to_imports:
-            self.file_to_imports[filepath] = set()
+    @staticmethod
+    def _external_root(mod: str) -> str | None:
+        if mod.startswith("."):
+            return None  # unresolved relative import: not an external package
+        head = re.split(r"[./]", mod)[0]
+        return head or None
 
-        old_imports = self.file_to_imports[filepath].copy()
-        for imp_module in old_imports:
-            self.graph.remove_edges_from(
-                [
-                    (filepath, target)
-                    for target in list(self.graph.successors(filepath))
-                    if self.graph.edges[filepath, target].get("type") == "imports"
-                ]
-            )
-
-        self.file_to_imports[filepath] = set()
-        for imp in parsed_file.imports:
-            imp_id = f"import::{imp.module}"
-            self.graph.add_node(imp_id, type="import", label=imp.module)
-            self.graph.add_edge(filepath, imp_id, type="imports")
-            self.file_to_imports[filepath].add(imp.module)
-
-        for route in parsed_file.api_routes:
-            route_id = f"{filepath}::{route.method}::{route.path}"
-            self.graph.add_node(
-                route_id, type="api_route", label=f"{route.method} {route.path}"
-            )
-            self.graph.add_edge(filepath, route_id, type="defines")
-
-    def get_mermaid_diagram(self) -> str:
-        lines = ["graph TD"]
-
-        for node_id, data in self.graph.nodes(data=True):
-            node_type = data.get("type", "unknown")
-            label = data.get("label", node_id)
-
-            # Safely escape quotes and newlines for Mermaid
-            safe_label = str(label).replace('"', '\\"').replace("\n", " ")
-            safe_id = self._escape_id(node_id)
-
-            if node_type == "file":
-                lines.append(f'    {safe_id}["📄 {safe_label}"]')
-            elif node_type == "function":
-                lines.append(f'    {safe_id}(["⚙️ {safe_label}"])')
-            elif node_type == "import":
-                lines.append(f'    {safe_id}{{"📦 {safe_label}"}}')
-            elif node_type == "api_route":
-                lines.append(f'    {safe_id}>"🌐 {safe_label}"]')
-
-        for source, target, data in self.graph.edges(data=True):
-            edge_type = data.get("type", "")
-            source_id = self._escape_id(source)
-            target_id = self._escape_id(target)
-
-            if edge_type == "imports":
-                lines.append(f"    {source_id} -->|imports| {target_id}")
-            elif edge_type == "defines":
-                lines.append(f"    {source_id} -->|defines| {target_id}")
-            elif edge_type == "calls":
-                lines.append(f"    {source_id} -->|calls| {target_id}")
-
-        return "\n".join(lines)
-
-    def _escape_id(self, node_id: str) -> str:
-        # Replace ALL non-alphanumeric characters with underscores.
-        # This guarantees a valid Mermaid ID and prevents Firefox file:// errors.
-        return re.sub(r"[^a-zA-Z0-9]", "_", node_id)
+    # ---------- graph derivation ----------
 
     def get_graph_state(self) -> dict:
-        nodes = []
-        for node_id, data in self.graph.nodes(data=True):
+        nodes: list[dict] = []
+        edges: list[dict] = []
+        seen_edges = set()
+
+        def add_edge(a: str, b: str, kind: str):
+            key = (a, b, kind)
+            if a != b and key not in seen_edges:
+                seen_edges.add(key)
+                edges.append({"from": a, "to": b, "type": kind})
+
+        # Index for resolving internal imports: stem -> real path.
+        index: dict[str, str] = {}
+        for path in self.files:
+            rel = self._rel(path)
+            stem = re.sub(r"\.(py|js|jsx|ts|tsx|go|cpp|c|h|hpp)$", "", rel)
+            index[stem] = path
+            index.setdefault(posixpath.basename(stem), path)
+
+        def resolve(mod: str, file_rel: str) -> str | None:
+            candidates = []
+            if mod.startswith("."):
+                base = posixpath.dirname(file_rel)
+                cleaned = mod.lstrip("./")
+                candidates.append(posixpath.normpath(posixpath.join(base, cleaned)))
+            else:
+                candidates.append(mod.replace(".", "/"))
+                candidates.append(mod.lstrip("./"))
+            for c in candidates:
+                if c in index:
+                    return index[c]
+                if c + "/__init__" in index:
+                    return index[c + "/__init__"]
+                for stem, path in index.items():
+                    if stem.endswith("/" + c):
+                        return path
+            return None
+
+        externals: dict[str, str] = {}
+
+        for path, rec in self.files.items():
+            rel = self._rel(path)
             nodes.append(
                 {
-                    "id": node_id,
-                    "label": data.get("label", node_id),
-                    "type": data.get("type", "unknown"),
+                    "id": path,
+                    "label": posixpath.basename(rel),
+                    "sub": posixpath.dirname(rel) or "root",
+                    "type": "file",
+                    "functions": len(rec.functions),
                 }
             )
 
-        edges = []
-        for source, target, data in self.graph.edges(data=True):
-            edges.append(
-                {"from": source, "to": target, "type": data.get("type", "unknown")}
-            )
+            for name, line in rec.functions:
+                fid = f"{path}::{name}"
+                nodes.append(
+                    {
+                        "id": fid,
+                        "label": name,
+                        "type": "function",
+                        "file": path,
+                        "line": line,
+                    }
+                )
+                add_edge(path, fid, "defines")
+
+            for method, rpath, handler in rec.routes:
+                rid = f"{path}::{method}::{rpath}"
+                nodes.append(
+                    {
+                        "id": rid,
+                        "label": f"{method} {rpath}",
+                        "type": "route",
+                        "file": path,
+                    }
+                )
+                add_edge(path, rid, "exposes")
+
+            for raw in rec.imports:
+                for mod in self._import_modules(raw):
+                    target = resolve(mod, rel)
+                    if target and target in self.files:
+                        add_edge(path, target, "imports")
+                    else:
+                        root = self._external_root(mod)
+                        if not root:
+                            continue
+                        eid = f"ext::{root}"
+                        if eid not in externals:
+                            externals[eid] = root
+                            nodes.append(
+                                {
+                                    "id": eid,
+                                    "label": root,
+                                    "type": "external",
+                                }
+                            )
+                        add_edge(path, eid, "imports")
 
         return {
             "nodes": nodes,
             "edges": edges,
-            "mermaid_diagram": self.get_mermaid_diagram(),
+            "meta": {
+                "repo": self.repo,
+                "files": len(self.files),
+                "functions": sum(len(r.functions) for r in self.files.values()),
+                "externals": len(externals),
+            },
         }
