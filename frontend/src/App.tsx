@@ -794,7 +794,7 @@ export default function App() {
                       {drawerChildren.slice(0, 60).map(s => (
                         <button key={s.id} onClick={() => setDrawerId(s.id)}>
                           {s.exported ? '' : '· '}{s.label}
-                          <span>{s.kind} :{s.line}</span>
+                          <span>{s.type} :{s.line}</span>
                         </button>
                       ))}
                     </div>
