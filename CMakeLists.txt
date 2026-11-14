@@ -11,9 +11,8 @@ find_package(Threads REQUIRED)
 find_package(Protobuf REQUIRED)
 find_package(gRPC REQUIRED)
 
-# ---------------------------------------------------------------------------
-# tree-sitter core
-# ---------------------------------------------------------------------------
+enable_testing()
+
 add_library(tree-sitter STATIC
     third_party/tree-sitter/lib/src/lib.c
 )
@@ -22,10 +21,6 @@ target_include_directories(tree-sitter PUBLIC
     third_party/tree-sitter/lib/src
 )
 
-# ---------------------------------------------------------------------------
-# Grammar helper: builds one grammar library from a directory containing
-# parser.c (+ optional scanner.c / scanner.cc).
-# ---------------------------------------------------------------------------
 function(add_ts_grammar TARGET DIR)
     if(NOT EXISTS "${CMAKE_SOURCE_DIR}/${DIR}/parser.c")
         message(FATAL_ERROR "Grammar missing: ${DIR}. Run scripts/fetch_grammars.sh")
@@ -61,9 +56,6 @@ set(TS_GRAMMARS
     ts-c ts-cpp ts-go ts-java ts-csharp ts-rust ts-ruby ts-php
 )
 
-# ---------------------------------------------------------------------------
-# Protobuf / gRPC codegen
-# ---------------------------------------------------------------------------
 set(PROTO_FILE "${CMAKE_SOURCE_DIR}/python/proto/codesight.proto")
 set(PROTO_SRC "${CMAKE_BINARY_DIR}/codesight.pb.cc")
 set(PROTO_HDR "${CMAKE_BINARY_DIR}/codesight.pb.h")
@@ -82,9 +74,6 @@ add_custom_command(
     COMMENT "Generating protobuf and gRPC code"
 )
 
-# ---------------------------------------------------------------------------
-# Executable
-# ---------------------------------------------------------------------------
 set(SOURCES
     src/main.cpp
     src/utils/file_filter.cpp
@@ -117,3 +106,27 @@ target_link_libraries(codesight PRIVATE
 target_compile_options(codesight PRIVATE
     $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra>
 )
+
+# ---------------------------------------------------------------------------
+# C++ unit tests (parser + file filter). No gRPC / server dependency.
+# ---------------------------------------------------------------------------
+add_executable(codesight_tests
+    tests/cpp/test_parser.cpp
+    src/parser/parser.cpp
+    src/utils/file_filter.cpp
+)
+
+target_include_directories(codesight_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(codesight_tests PRIVATE
+    Threads::Threads
+    ${TS_GRAMMARS}
+)
+
+target_compile_options(codesight_tests PRIVATE
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra>
+)
+
+add_test(NAME codesight_tests COMMAND codesight_tests)

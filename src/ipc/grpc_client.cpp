@@ -51,6 +51,14 @@ namespace codesight
             out->set_complexity(s.complexity);
         }
 
+        for (const auto &c : parsed.calls)
+        {
+            auto *out = request.add_calls();
+            out->set_caller(c.caller);
+            out->set_callee(c.callee);
+            out->set_line_number(c.line_number);
+        }
+
         codesight::AckResponse response;
         grpc::ClientContext context;
 

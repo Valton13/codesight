@@ -37,12 +37,19 @@ message SymbolInfo {
   int32 complexity = 7;
 }
 
+message CallInfo {
+  string caller = 1;
+  string callee = 2;
+  int32 line_number = 3;
+}
+
 message ParsedFile {
   string filepath = 1;
   repeated FunctionInfo functions = 2;
   repeated ImportInfo imports = 3;
   repeated ApiRouteInfo api_routes = 4;
   repeated SymbolInfo symbols = 5;
+  repeated CallInfo calls = 6;
 }
 
 message AckResponse {

@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libgrpc++-dev \
+            libprotobuf-dev protobuf-compiler protobuf-compiler-grpc
+
+      - name: Fetch tree-sitter grammars
+        run: bash scripts/fetch_grammars.sh
+
+      - name: Configure C++
+        run: cmake -S . -B build
+
+      - name: Build C++
+        run: cmake --build build -j"$(nproc)"
+
+      - name: C++ unit tests
+        run: cd build && ctest --output-on-failure
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Python dependencies
+        run: |
+          cd python
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+          python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. proto/codesight.proto
+
+      - name: Python unit tests
+        run: cd python && python -m pytest tests -q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Frontend dependencies
+        run: cd frontend && (npm ci || npm install)
+
+      - name: Frontend typecheck + build
+        run: cd frontend && npm run build

@@ -10,9 +10,10 @@ cmake-build-*/
 
 # Python
 python/venv/
+venv/
 __pycache__/
 *.py[cod]
-env/
+.pytest_cache/
 
 # Node / frontend
 frontend/node_modules/
@@ -24,10 +25,12 @@ logs/
 .pids
 .repo_cache/
 
+# Vendored grammars (fetched by scripts/fetch_grammars.sh)
+third_party/
+
 # IDE / OS
 .vscode/
 .idea/
 *.swp
 .DS_Store
 Thumbs.db
-third_party/

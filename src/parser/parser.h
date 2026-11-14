@@ -31,12 +31,19 @@ namespace codesight
     struct CppSymbolInfo
     {
         std::string name;
-        std::string kind; // class | interface | struct | enum | trait | module | function | method | constructor
+        std::string kind;
         int line_number;
         int end_line;
-        std::string parent; // enclosing type, empty when top level
+        std::string parent;
         bool exported;
         int complexity;
+    };
+
+    struct CppCallInfo
+    {
+        std::string caller;
+        std::string callee;
+        int line_number;
     };
 
     struct CppParsedFile
@@ -46,6 +53,7 @@ namespace codesight
         std::vector<CppImportInfo> imports;
         std::vector<CppApiRouteInfo> api_routes;
         std::vector<CppSymbolInfo> symbols;
+        std::vector<CppCallInfo> calls;
     };
 
     class Parser

@@ -1,4 +1,4 @@
-"""Dependency + symbol graph with metrics, cycles, key-file ranking and risk scoring."""
+"""Dependency + symbol + call graph with metrics, cycles, key-file ranking and risk scoring."""
 
 import posixpath
 import re
@@ -65,6 +65,7 @@ class FileRecord:
     imports: list[str] = field(default_factory=list)
     routes: list[tuple[str, str, str]] = field(default_factory=list)
     symbols: list[Symbol] = field(default_factory=list)
+    calls: list[tuple[str, str, int]] = field(default_factory=list)
     loc: int = 0
 
 
@@ -107,7 +108,6 @@ def _pagerank(
 
 
 def _cycles(nodes: list[str], edges: list[tuple[str, str]]) -> list[list[str]]:
-    """Tarjan SCC; returns components with more than one node."""
     adj: dict[str, list[str]] = {n: [] for n in nodes}
     for a, b in edges:
         if a in adj and b in adj:
@@ -193,6 +193,10 @@ class GraphBuilder:
             )
             for s in getattr(parsed_file, "symbols", [])
         ]
+        rec.calls = [
+            (c.caller, c.callee, c.line_number)
+            for c in getattr(parsed_file, "calls", [])
+        ]
         rec.loc = _count_lines(rec.path)
         self.files[rec.path] = rec
 
@@ -253,11 +257,14 @@ class GraphBuilder:
         edges: list[dict] = []
         seen_edges = set()
 
-        def add_edge(a: str, b: str, kind: str):
+        def add_edge(a: str, b: str, kind: str, confidence: str | None = None):
             key = (a, b, kind)
             if a != b and key not in seen_edges:
                 seen_edges.add(key)
-                edges.append({"from": a, "to": b, "type": kind})
+                e = {"from": a, "to": b, "type": kind}
+                if confidence:
+                    e["confidence"] = confidence
+                edges.append(e)
 
         index: dict[str, str] = {}
         for path in self.files:
@@ -287,7 +294,6 @@ class GraphBuilder:
                         return path
             return None
 
-        # ---- pass 1: file/symbol/external nodes and non-import edges ----
         externals: dict[str, str] = {}
         pending_imports: list[tuple[str, str]] = []
         symbol_ids: dict[tuple[str, str], str] = {}
@@ -343,7 +349,6 @@ class GraphBuilder:
                 for mod in self._import_modules(raw):
                     pending_imports.append((path, mod))
 
-        # symbol containment edges
         for node in nodes:
             if node["type"] in TYPE_KINDS or node["type"] in CALLABLE_KINDS:
                 parent_name = node.get("parent_name")
@@ -356,7 +361,6 @@ class GraphBuilder:
                 else:
                     add_edge(node["file"], node["id"], "defines")
 
-        # ---- pass 2: import edges ----
         for path, mod in pending_imports:
             rel = self._rel(path)
             target = resolve(mod, rel)
@@ -371,6 +375,117 @@ class GraphBuilder:
                     externals[eid] = root
                     nodes.append({"id": eid, "label": root, "type": "external"})
                 add_edge(path, eid, "imports")
+
+        # ---- call-graph resolution ----
+        id_type = {n["id"]: n["type"] for n in nodes}
+        bindings: dict[str, dict[str, tuple[str, str | None]]] = {}
+        for path, rec in self.files.items():
+            b: dict[str, tuple[str, str | None]] = {}
+            rel = self._rel(path)
+            for raw in rec.imports:
+                m = re.match(r"from\s+([\w.\-/]+)\s+import\s+(.+)$", raw)
+                if m:
+                    target = resolve(m.group(1), rel)
+                    if target:
+                        for part in m.group(2).split(","):
+                            part = part.strip()
+                            am = re.match(r"(\w+)\s+as\s+(\w+)", part)
+                            if am:
+                                b[am.group(2)] = (target, am.group(1))
+                            elif part and part != "*":
+                                b[part] = (target, part)
+                    continue
+                m = re.match(r"import\s+([\w.\-/]+)(?:\s+as\s+(\w+))?$", raw)
+                if m:
+                    target = resolve(m.group(1), rel)
+                    if target:
+                        b[m.group(2) or m.group(1).split(".")[-1]] = (target, None)
+                    continue
+                m = re.match(
+                    r"import\s+\*\s+as\s+([\w$]+)\s+from\s+['\"]([^'\"]+)['\"]", raw
+                )
+                if m:
+                    target = resolve(m.group(2), rel)
+                    if target:
+                        b[m.group(1)] = (target, None)
+                    continue
+                m = re.match(r"import\s+([\w$]+)\s+from\s+['\"]([^'\"]+)['\"]", raw)
+                if m:
+                    target = resolve(m.group(2), rel)
+                    if target:
+                        b[m.group(1)] = (target, None)
+                    continue
+                m = re.match(r"import\s+\{([^}]+)\}\s+from\s+['\"]([^'\"]+)['\"]", raw)
+                if m:
+                    target = resolve(m.group(2), rel)
+                    if target:
+                        for part in m.group(1).split(","):
+                            part = part.strip()
+                            am = re.match(r"([\w$]+)\s+as\s+([\w$]+)", part)
+                            if am:
+                                b[am.group(2)] = (target, am.group(1))
+                            elif part:
+                                b[part] = (target, part)
+                    continue
+                for mod in self._import_modules(raw):
+                    target = resolve(mod, rel)
+                    if target:
+                        b.setdefault(mod.split(".")[-1].split("/")[-1], (target, None))
+                        b.setdefault(mod, (target, None))
+            bindings[path] = b
+
+        call_count = 0
+        for path, rec in self.files.items():
+            b = bindings.get(path, {})
+            for caller, callee, line in rec.calls:
+                src = symbol_ids.get((path, caller)) if caller else path
+                if not src or src not in id_type:
+                    continue
+                parts = [p for p in re.split(r"\.|::", callee) if p]
+                if not parts:
+                    continue
+                caller_parent = caller.rsplit(".", 1)[0] if "." in caller else ""
+                target = None
+                conf = "medium"
+                if parts[0] in ("self", "this", "cls") and len(parts) >= 2:
+                    q = f"{caller_parent}.{parts[1]}" if caller_parent else parts[1]
+                    target = symbol_ids.get((path, q))
+                    conf = "high"
+                elif len(parts) == 1:
+                    target = symbol_ids.get((path, parts[0]))
+                    if target:
+                        conf = "high"
+                    else:
+                        bind = b.get(parts[0])
+                        if bind:
+                            fid, sname = bind
+                            target = symbol_ids.get((fid, sname or parts[0]))
+                            conf = "medium"
+                else:
+                    bind = b.get(parts[0])
+                    if bind:
+                        fid, _sname = bind
+                        target = symbol_ids.get((fid, parts[1]))
+                        if not target and len(parts) >= 3:
+                            target = symbol_ids.get((fid, f"{parts[1]}.{parts[2]}"))
+                        conf = "medium"
+                    else:
+                        target = symbol_ids.get((path, f"{parts[0]}.{parts[1]}"))
+                        if target:
+                            conf = "high"
+                if target and target != src and id_type.get(target) in CALLABLE_KINDS:
+                    key = (src, target, "calls")
+                    if key not in seen_edges:
+                        seen_edges.add(key)
+                        edges.append(
+                            {
+                                "from": src,
+                                "to": target,
+                                "type": "calls",
+                                "confidence": conf,
+                            }
+                        )
+                        call_count += 1
 
         # ---- metrics on the file-level import graph ----
         file_ids = list(self.files.keys())
@@ -442,6 +557,7 @@ class GraphBuilder:
                 "functions": sum(1 for n in nodes if n["type"] in CALLABLE_KINDS),
                 "types": sum(1 for n in nodes if n["type"] in TYPE_KINDS),
                 "externals": len(externals),
+                "calls": call_count,
             },
             "insights": {
                 "cycles": [

@@ -26,7 +26,7 @@ export interface GraphNode {
     symbols?: number;
 }
 
-export interface GraphEdge { from: string; to: string; type: string }
+export interface GraphEdge { from: string; to: string; type: string; confidence?: string }
 
 export interface GraphMeta {
     repo: string | null;
@@ -34,6 +34,7 @@ export interface GraphMeta {
     functions: number;
     types?: number;
     externals: number;
+    calls?: number;
 }
 
 export interface Ref { id: string; label: string }
@@ -145,12 +146,13 @@ export function riskBucket(risk = 0): number {
     return Math.max(0, Math.min(4, Math.floor(risk * 5)));
 }
 
-export type EdgeKind = 'import' | 'dependency' | 'defines' | 'contains' | 'exposes';
+export type EdgeKind = 'import' | 'dependency' | 'defines' | 'contains' | 'exposes' | 'calls';
 
 export function edgeKind(edge: GraphEdge, byId: Map<string, GraphNode>): EdgeKind {
     if (edge.type === 'defines') return 'defines';
     if (edge.type === 'contains') return 'contains';
     if (edge.type === 'exposes') return 'exposes';
+    if (edge.type === 'calls') return 'calls';
     return byId.get(edge.to)?.type === 'external' ? 'dependency' : 'import';
 }
 
@@ -232,8 +234,6 @@ export function buildMermaid(
     const idMap: Record<string, string> = {};
     nodes.forEach((n, i) => { idMap[n.id] = `n${i}`; });
 
-    // Mermaid reserves keywords such as `call`, `click`, `end`, `style`, `default`.
-    // Namespacing every class name guarantees a node kind can never collide with one.
     const C = {
         file: 'cs_file',
         sym: 'cs_sym',
@@ -332,7 +332,7 @@ export function buildMermaid(
     const styleLines: string[] = [];
     edges.forEach((edge, index) => {
         const kind = edgeKind(edge, byId);
-        const arrow = kind === 'dependency' || kind === 'defines' || kind === 'contains' ? '-.->'
+        const arrow = kind === 'dependency' || kind === 'defines' || kind === 'contains' || kind === 'calls' ? '-.->'
             : kind === 'exposes' ? '==>' : '-->';
         const label = opts.edgeLabels ? `|${kind === 'dependency' ? 'depends on' : kind}|` : '';
         lines.push(`${idMap[edge.from]} ${arrow}${label} ${idMap[edge.to]}`);
@@ -341,7 +341,8 @@ export function buildMermaid(
             : kind === 'dependency' ? `stroke:${t.ext[1]},stroke-width:1.7px,stroke-dasharray:6 4`
                 : kind === 'contains' ? `stroke:${t.sym[1]},stroke-width:1.2px,stroke-dasharray:3 3`
                     : kind === 'defines' ? `stroke:${t.fn[1]},stroke-width:1.2px,stroke-dasharray:2 4`
-                        : `stroke:${t.route[1]},stroke-width:1.8px,stroke-dasharray:10 4`;
+                        : kind === 'calls' ? `stroke:${t.file[1]},stroke-width:1.4px,stroke-dasharray:1 3`
+                            : `stroke:${t.route[1]},stroke-width:1.8px,stroke-dasharray:10 4`;
         styleLines.push(`linkStyle ${index} ${style}`);
     });
 

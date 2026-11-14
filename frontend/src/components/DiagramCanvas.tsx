@@ -15,38 +15,33 @@ interface Props {
     onToast: (msg: string, kind?: 'success' | 'error' | 'info') => void;
 }
 
+const EDGE_LEGEND: Array<{ key: string; label: string; dash: string; width: number; color: (t: any) => string }> = [
+    { key: 'import', label: 'imports', dash: '', width: 2.2, color: t => t.line },
+    { key: 'dependency', label: 'depends on', dash: '6 4', width: 1.7, color: t => t.ext[1] },
+    { key: 'defines', label: 'defines', dash: '2 4', width: 1.2, color: t => t.fn[1] },
+    { key: 'contains', label: 'contains', dash: '3 3', width: 1.2, color: t => t.sym[1] },
+    { key: 'calls', label: 'calls (static approx)', dash: '1 3', width: 1.4, color: t => t.file[1] },
+    { key: 'exposes', label: 'exposes route', dash: '10 4', width: 1.8, color: t => t.route[1] },
+];
+
 export default function DiagramCanvas({
-    code,
-    idMap,
-    theme,
-    fontSize,
-    nodeSpacing,
-    rankSpacing,
-    immersive,
-    onToggleImmersive,
-    onNodeClick,
-    onToast,
+    code, idMap, theme, fontSize, nodeSpacing, rankSpacing,
+    immersive, onToggleImmersive, onNodeClick, onToast,
 }: Props) {
     const canvasRef = useRef<HTMLDivElement>(null);
     const innerRef = useRef<HTMLDivElement>(null);
-
     const [svg, setSvg] = useState('');
     const [renderError, setRenderError] = useState('');
     const [transform, setTransform] = useState({ x: 40, y: 40, scale: 1 });
-
     const drag = useRef({ active: false, moved: 0, px: 0, py: 0 });
     const renderQueue = useRef<Promise<void>>(Promise.resolve());
-
     const configKey = `${theme}|${fontSize}|${nodeSpacing}|${rankSpacing}`;
 
     useEffect(() => {
         let cancelled = false;
-
         renderQueue.current = renderQueue.current.then(async () => {
             if (cancelled || !code) return;
-
             const t = THEMES[theme];
-
             mermaid.initialize({
                 startOnLoad: false,
                 securityLevel: 'loose',
@@ -63,96 +58,53 @@ export default function DiagramCanvas({
                     clusterBorder: 'rgba(148,163,184,0.25)',
                     edgeLabelBackground: t.bg,
                 },
-                flowchart: {
-                    useMaxWidth: false,
-                    htmlLabels: true,
-                    curve: 'basis',
-                    nodeSpacing,
-                    rankSpacing,
-                },
+                flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis', nodeSpacing, rankSpacing },
             });
-
             try {
                 const { svg: output } = await mermaid.render(`cs-${Date.now()}`, code);
-                if (!cancelled) {
-                    setSvg(output);
-                    setRenderError('');
-                }
+                if (!cancelled) { setSvg(output); setRenderError(''); }
             } catch (error: any) {
-                if (!cancelled) {
-                    setRenderError(error?.message || 'Diagram render failed');
-                }
+                if (!cancelled) setRenderError(error?.message || 'Diagram render failed');
             }
         });
-
-        return () => {
-            cancelled = true;
-        };
+        return () => { cancelled = true; };
     }, [code, configKey, theme, fontSize, nodeSpacing, rankSpacing]);
 
     const fit = useCallback(() => {
         const canvas = canvasRef.current;
         const svgEl = innerRef.current?.querySelector('svg');
         if (!canvas || !svgEl) return;
-
         const viewBox = (svgEl as SVGSVGElement).viewBox?.baseVal;
         const width = viewBox?.width || svgEl.getBoundingClientRect().width || 800;
         const height = viewBox?.height || svgEl.getBoundingClientRect().height || 600;
-
-        const cw = canvas.clientWidth;
-        const ch = canvas.clientHeight;
-
-        const scale = Math.max(
-            0.12,
-            Math.min((cw - 48) / width, (ch - 48) / height, 2.4),
-        );
-
-        setTransform({
-            x: (cw - width * scale) / 2,
-            y: (ch - height * scale) / 2,
-            scale,
-        });
+        const cw = canvas.clientWidth, ch = canvas.clientHeight;
+        const scale = Math.max(0.12, Math.min((cw - 48) / width, (ch - 48) / height, 2.4));
+        setTransform({ x: (cw - width * scale) / 2, y: (ch - height * scale) / 2, scale });
     }, []);
 
-    useLayoutEffect(() => {
-        if (svg) fit();
-    }, [svg, fit]);
+    useLayoutEffect(() => { if (svg) fit(); }, [svg, fit]);
 
     useEffect(() => {
         const element = canvasRef.current;
         if (!element) return;
-
         let frame = 0;
         const observer = new ResizeObserver(() => {
             cancelAnimationFrame(frame);
             frame = requestAnimationFrame(fit);
         });
-
         observer.observe(element);
-
-        return () => {
-            observer.disconnect();
-            cancelAnimationFrame(frame);
-        };
+        return () => { observer.disconnect(); cancelAnimationFrame(frame); };
     }, [fit]);
 
     useEffect(() => {
         const element = canvasRef.current;
         if (!element) return;
-
         const onWheel = (event: WheelEvent) => {
             event.preventDefault();
-
             const rect = element.getBoundingClientRect();
-            const mx = event.clientX - rect.left;
-            const my = event.clientY - rect.top;
-
+            const mx = event.clientX - rect.left, my = event.clientY - rect.top;
             setTransform(current => {
-                const nextScale = Math.max(
-                    0.12,
-                    Math.min(5, current.scale * Math.exp(-event.deltaY * 0.0012)),
-                );
-
+                const nextScale = Math.max(0.12, Math.min(5, current.scale * Math.exp(-event.deltaY * 0.0012)));
                 return {
                     scale: nextScale,
                     x: mx - (mx - current.x) * (nextScale / current.scale),
@@ -160,7 +112,6 @@ export default function DiagramCanvas({
                 };
             });
         };
-
         element.addEventListener('wheel', onWheel, { passive: false });
         return () => element.removeEventListener('wheel', onWheel);
     }, []);
@@ -168,69 +119,38 @@ export default function DiagramCanvas({
     useEffect(() => {
         const root = innerRef.current;
         if (!root || !svg) return;
-
         const reverse: Record<string, string> = {};
-        Object.entries(idMap).forEach(([original, short]) => {
-            reverse[short] = original;
-        });
-
+        Object.entries(idMap).forEach(([original, short]) => { reverse[short] = original; });
         const handler = (event: Event) => {
             if (drag.current.moved > 5) return;
-
             const group = (event.target as Element).closest('g.node');
             if (!group) return;
-
             const match = (group.getAttribute('id') || '').match(/^flowchart-(n\d+)-\d+$/);
-            if (match && reverse[match[1]]) {
-                onNodeClick(reverse[match[1]]);
-            }
+            if (match && reverse[match[1]]) onNodeClick(reverse[match[1]]);
         };
-
         root.addEventListener('click', handler);
         return () => root.removeEventListener('click', handler);
     }, [svg, idMap, onNodeClick]);
 
     const onPointerDown = (event: React.PointerEvent) => {
-        drag.current = {
-            active: true,
-            moved: 0,
-            px: event.clientX,
-            py: event.clientY,
-        };
+        drag.current = { active: true, moved: 0, px: event.clientX, py: event.clientY };
         (event.currentTarget as Element).setPointerCapture(event.pointerId);
     };
-
     const onPointerMove = (event: React.PointerEvent) => {
         if (!drag.current.active) return;
-
-        const dx = event.clientX - drag.current.px;
-        const dy = event.clientY - drag.current.py;
-
+        const dx = event.clientX - drag.current.px, dy = event.clientY - drag.current.py;
         drag.current.moved += Math.abs(dx) + Math.abs(dy);
-        drag.current.px = event.clientX;
-        drag.current.py = event.clientY;
-
-        setTransform(current => ({
-            ...current,
-            x: current.x + dx,
-            y: current.y + dy,
-        }));
+        drag.current.px = event.clientX; drag.current.py = event.clientY;
+        setTransform(current => ({ ...current, x: current.x + dx, y: current.y + dy }));
     };
-
-    const onPointerUp = () => {
-        drag.current.active = false;
-    };
+    const onPointerUp = () => { drag.current.active = false; };
 
     const zoomBy = (factor: number) => {
         const element = canvasRef.current;
         if (!element) return;
-
-        const mx = element.clientWidth / 2;
-        const my = element.clientHeight / 2;
-
+        const mx = element.clientWidth / 2, my = element.clientHeight / 2;
         setTransform(current => {
             const nextScale = Math.max(0.12, Math.min(5, current.scale * factor));
-
             return {
                 scale: nextScale,
                 x: mx - (mx - current.x) * (nextScale / current.scale),
@@ -239,23 +159,15 @@ export default function DiagramCanvas({
         });
     };
 
-    const currentSvg = () =>
-        innerRef.current?.querySelector('svg') as SVGSVGElement | null;
+    const currentSvg = () => innerRef.current?.querySelector('svg') as SVGSVGElement | null;
 
     const exportSVG = () => {
         const element = currentSvg();
         if (!element) return;
-
         const data = new XMLSerializer().serializeToString(element);
-        const url = URL.createObjectURL(
-            new Blob([data], { type: 'image/svg+xml;charset=utf-8' }),
-        );
-
+        const url = URL.createObjectURL(new Blob([data], { type: 'image/svg+xml;charset=utf-8' }));
         const link = document.createElement('a');
-        link.href = url;
-        link.download = `codesight-${Date.now()}.svg`;
-        link.click();
-
+        link.href = url; link.download = `codesight-${Date.now()}.svg`; link.click();
         URL.revokeObjectURL(url);
         onToast('SVG exported', 'success');
     };
@@ -263,60 +175,39 @@ export default function DiagramCanvas({
     const exportPNG = () => {
         const element = currentSvg();
         if (!element) return;
-
         const data = new XMLSerializer().serializeToString(element);
-        const url = URL.createObjectURL(
-            new Blob([data], { type: 'image/svg+xml;charset=utf-8' }),
-        );
-
+        const url = URL.createObjectURL(new Blob([data], { type: 'image/svg+xml;charset=utf-8' }));
         const image = new Image();
-
         image.onload = () => {
             const viewBox = element.viewBox?.baseVal;
             const width = (viewBox?.width || image.width) * 2;
             const height = (viewBox?.height || image.height) * 2;
-
             const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-
+            canvas.width = width; canvas.height = height;
             const context = canvas.getContext('2d');
             if (context) {
                 context.fillStyle = THEMES[theme].bg;
                 context.fillRect(0, 0, width, height);
                 context.drawImage(image, 0, 0, width, height);
-
                 const link = document.createElement('a');
                 link.href = canvas.toDataURL('image/png');
-                link.download = `codesight-${Date.now()}.png`;
-                link.click();
-
+                link.download = `codesight-${Date.now()}.png`; link.click();
                 onToast('PNG exported', 'success');
             }
-
             URL.revokeObjectURL(url);
         };
-
-        image.onerror = () => {
-            URL.revokeObjectURL(url);
-            onToast('PNG export failed', 'error');
-        };
-
+        image.onerror = () => { URL.revokeObjectURL(url); onToast('PNG export failed', 'error'); };
         image.src = url;
     };
 
     const copyCode = async () => {
-        try {
-            await navigator.clipboard.writeText(code);
-            onToast('Mermaid source copied', 'success');
-        } catch {
-            onToast('Clipboard unavailable', 'error');
-        }
+        try { await navigator.clipboard.writeText(code); onToast('Mermaid source copied', 'success'); }
+        catch { onToast('Clipboard unavailable', 'error'); }
     };
 
-    if (renderError) {
-        return <div className="canvas-message error">Render error: {renderError}</div>;
-    }
+    if (renderError) return <div className="canvas-message error">Render error: {renderError}</div>;
+
+    const t = THEMES[theme];
 
     return (
         <div
@@ -327,40 +218,45 @@ export default function DiagramCanvas({
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
         >
-            <div className="canvas-tools" onPointerDown={event => event.stopPropagation()}>
-                <button className="tool-btn" title="Zoom in" onClick={() => zoomBy(1.25)}>
-                    +
-                </button>
-                <button className="tool-btn" title="Zoom out" onClick={() => zoomBy(0.8)}>
-                    −
-                </button>
-                <button className="tool-btn" title="Fit to view" onClick={fit}>
-                    Fit
-                </button>
+            <div className="canvas-tools" onPointerDown={e => e.stopPropagation()}>
+                <button className="tool-btn" title="Zoom in" onClick={() => zoomBy(1.25)}>+</button>
+                <button className="tool-btn" title="Zoom out" onClick={() => zoomBy(0.8)}>−</button>
+                <button className="tool-btn" title="Fit to view" onClick={fit}>Fit</button>
                 <span className="zoom-label">{Math.round(transform.scale * 100)}%</span>
-
                 <span className="tool-sep" />
-
-                <button className="tool-btn" onClick={onToggleImmersive}>
-                    {immersive ? 'Exit wide' : 'Wide view'}
-                </button>
-
+                <button className="tool-btn" onClick={onToggleImmersive}>{immersive ? 'Exit wide' : 'Wide view'}</button>
                 <span className="tool-sep" />
-
                 <button className="tool-btn" onClick={exportSVG}>SVG</button>
                 <button className="tool-btn" onClick={exportPNG}>PNG</button>
                 <button className="tool-btn" onClick={copyCode}>Copy</button>
             </div>
 
             <div
+                style={{
+                    position: 'absolute', left: 14, bottom: 14, zIndex: 20, pointerEvents: 'none',
+                    display: 'flex', flexDirection: 'column', gap: 5,
+                    background: 'rgba(11,18,32,0.85)', border: '1px solid #1d2b45',
+                    borderRadius: 10, padding: '9px 12px', backdropFilter: 'blur(8px)',
+                    fontFamily: '"IBM Plex Mono", monospace', fontSize: 10.5, color: '#8fa3bf',
+                }}
+            >
+                {EDGE_LEGEND.map(item => (
+                    <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <svg width="30" height="6" aria-hidden>
+                            <line x1="0" y1="3" x2="30" y2="3" stroke={item.color(t)}
+                                strokeWidth={item.width} strokeDasharray={item.dash || undefined} />
+                        </svg>
+                        <span>{item.label}</span>
+                    </div>
+                ))}
+            </div>
+
+            <div
                 ref={innerRef}
                 className="canvas-inner diagram-svg"
-                style={{
-                    transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
-                }}
+                style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
                 dangerouslySetInnerHTML={{ __html: svg }}
             />
-
             {!svg && <div className="canvas-message">Rendering diagram…</div>}
         </div>
     );
