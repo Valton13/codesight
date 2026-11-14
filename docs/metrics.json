@@ -1,0 +1,23 @@
+{
+  "target": "/home/vaalton/codesight/test_project",
+  "cpp": {
+    "files": 3,
+    "ms": 1.38129,
+    "ms_per_file": 0.460429,
+    "files_per_sec": 2171.89,
+    "symbols": 22,
+    "imports": 5,
+    "routes": 1,
+    "calls": 4
+  },
+  "python": {
+    "ingest_ms": 0.174,
+    "graph_build_ms": 0.858,
+    "overview_ms": 0.655,
+    "graph_payload_kb": 12.7,
+    "nodes": 30,
+    "edges": 29,
+    "calls_resolved": 1,
+    "routes": 1
+  }
+}
